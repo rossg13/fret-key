@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Fret-Key Synchronizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; }
+        .controls { background: #222; padding: 15px; border-radius: 10px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; border: 1px solid #444; flex-wrap: wrap; justify-content: center;}
+        select, button { padding: 8px; border-radius: 5px; background: #333; color: white; border: 1px solid #555; cursor: pointer; font-weight: bold;}
+        button { background: #ffd700; color: #111; border: none; }
+        button:hover { background: #ffea00; }
+        .inv-btn { background: #444; color: white; }
+        .inv-btn.active-inv { background: #007bff; }
+
+        /* Piano */
+        .piano-container { width: 95vw; overflow-x: auto; background: #000; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 2px solid #333; }
+        .piano { display: inline-flex; height: 120px; position: relative; }
+        .key { width: 30px; height: 100%; background: white; border: 1px solid #bbb; border-radius: 0 0 4px 4px; cursor: pointer; flex-shrink: 0; display: flex; align-items: flex-end; justify-content: center; color: #888; font-size: 10px; padding-bottom: 5px; box-sizing: border-box; }
+        .key.black { background: #333; width: 20px; height: 60%; margin-left: -10px; margin-right: -10px; z-index: 2; border: none; }
+        .key[data-note^="C4"] { border: 2px solid #ff4444; }
+
+        /* Guitar */
+        .fretboard-wrapper { display: flex; align-items: center; width: 95vw; overflow-x: auto; padding-bottom: 20px; }
+        .string-labels { display: flex; flex-direction: column; justify-content: space-around; height: 210px; margin-right: 15px; font-weight: bold; color: #ffd700; flex-shrink: 0; }
+        .fretboard-container { position: relative; display: flex; }
+        .fretboard { display: flex; flex-direction: column; background: #3d2b1f; border: 2px solid #222; position: relative; }
+        .nut { width: 10px; background: #fff; border-right: 3px solid #000; height: 100%; position: absolute; left: 59px; z-index: 5; }
+        .string { display: flex; height: 35px; align-items: center; position: relative; }
+        .fret { width: 60px; height: 100%; border-right: 2px solid #999; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; flex-shrink: 0; }
+        .fret-0 { width: 60px; background: #2a1b12; }
+        .string-wire { position: absolute; width: 100%; height: var(--thick); background: linear-gradient(to bottom, #ccc, #777); z-index: 1; pointer-events: none; }
+        .note-glow { width: 22px; height: 22px; background: #ffd700; border-radius: 50%; z-index: 10; display: none; box-shadow: 0 0 10px #ffd700; color: black; font-size: 10px; font-weight: bold; line-height: 22px; text-align: center; }
+        
+        /* Markers */
+        .fret-dot { position: absolute; width: 10px; height: 10px; background: rgba(255, 255, 255, 0.4); border-radius: 50%; z-index: 0; display: none; }
+        .string:nth-child(4) .fret-3 .fret-dot, .string:nth-child(4) .fret-5 .fret-dot, .string:nth-child(4) .fret-7 .fret-dot, 
+        .string:nth-child(4) .fret-9 .fret-dot, .string:nth-child(4) .fret-15 .fret-dot, .string:nth-child(4) .fret-17 .fret-dot, 
+        .string:nth-child(4) .fret-19 .fret-dot, .string:nth-child(4) .fret-21 .fret-dot { display: block; }
+        .string:nth-child(2) .fret-12 .fret-dot, .string:nth-child(5) .fret-12 .fret-dot { display: block; }
+
+        .active { background: #ffd700 !important; display: block !important; }
+        .root-note { background: #ff4444 !important; box-shadow: 0 0 15px #ff4444 !important; }
+    </style>
+</head>
+<body>
+
+    <h1>Fret-Key Synchronizer</h1>
+
+    <div class="controls">
+        <select id="rootSelect">
+            <option value="C">C</option><option value="C#">C#</option><option value="D">D</option>
+            <option value="D#">D#</option><option value="E">E</option><option value="F">F</option>
+            <option value="F#">F#</option><option value="G">G</option><option value="G#">G#</option>
+            <option value="A">A</option><option value="A#">A#</option><option value="B">B</option>
+        </select>
+        <select id="typeSelect">
+            <option value="major">Major</option><option value="minor">Minor</option>
+        </select>
+        <button class="inv-btn active-inv" onclick="setInv(0, this)">Root</button>
+        <button class="inv-btn" onclick="setInv(1, this)">1st Inv</button>
+        <button class="inv-btn" onclick="setInv(2, this)">2nd Inv</button>
+        <button onclick="visualizeChord()">Show Chord</button>
+        <button style="background:#555; color:white;" onclick="clearVisuals()">Clear</button>
+    </div>
+
+    <div class="piano-container"><div class="piano" id="piano"></div></div>
+
+    <div class="fretboard-wrapper">
+        <div class="string-labels">
+            <div>E (1)</div><div>B (2)</div><div>G (3)</div><div>D (4)</div><div>A (5)</div><div>E (6)</div>
+        </div>
+        <div class="fretboard-container">
+            <div class="nut"></div>
+            <div class="fretboard" id="fretboard"></div>
+        </div>
+    </div>
+
+    <script>
+        const piano = document.getElementById('piano');
+        const fretboard = document.getElementById('fretboard');
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const guitarTuning = ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'];
+        let currentInv = 0;
+
+        // Build Instruments
+        for (let i = 0; i < 88; i++) {
+            const nIdx = (i + 9) % 12;
+            const oct = Math.floor((i + 9) / 12);
+            const fullNote = notes[nIdx] + oct;
+            const key = document.createElement('div');
+            key.className = `key ${notes[nIdx].includes('#') ? 'black' : 'white'}`;
+            key.dataset.note = fullNote;
+            key.onmousedown = () => { Tone.start(); synth.triggerAttackRelease(fullNote, "4n"); highlightNote(fullNote, true); };
+            piano.appendChild(key);
+        }
+
+        guitarTuning.forEach((root, sIdx) => {
+            const row = document.createElement('div');
+            row.className = 'string';
+            row.style.setProperty('--thick', [1, 1.5, 2, 2.5, 3, 4][sIdx] + "px");
+            for (let f = 0; f <= 21; f++) {
+                const note = Tone.Frequency(root).transpose(f).toNote();
+                const fret = document.createElement('div');
+                fret.className = `fret fret-${f}`;
+                fret.dataset.note = note;
+                fret.appendChild(Object.assign(document.createElement('div'), {className: 'string-wire'}));
+                fret.appendChild(Object.assign(document.createElement('div'), {className: 'fret-dot'}));
+                fret.appendChild(Object.assign(document.createElement('div'), {className: 'note-glow'}));
+                fret.onmousedown = () => { Tone.start(); synth.triggerAttackRelease(note, "4n"); highlightNote(note, true); };
+                row.appendChild(fret);
+            }
+            fretboard.appendChild(row);
+        });
+
+        function setInv(val, btn) {
+            currentInv = val;
+            document.querySelectorAll('.inv-btn').forEach(b => b.classList.remove('active-inv'));
+            btn.classList.add('active-inv');
+            visualizeChord();
+        }
+
+        function highlightNote(note, isRoot = false, pOnly = false, gOnly = false) {
+            const cleanNote = Tone.Frequency(note).toNote();
+            if(!gOnly) document.querySelectorAll(`.key[data-note="${cleanNote}"]`).forEach(k => {
+                k.classList.add('active');
+                if(isRoot) k.style.background = "#ff4444";
+            });
+            if(!pOnly) document.querySelectorAll(`.fret`).forEach(f => {
+                if (Tone.Frequency(f.dataset.note).toNote() === cleanNote) {
+                    const g = f.querySelector('.note-glow');
+                    g.classList.add('active');
+                    g.innerText = cleanNote.replace(/[0-9]/g, '');
+                    if(isRoot) g.classList.add('root-note');
+                }
+            });
+        }
+
+        function visualizeChord() {
+            clearVisuals();
+            const root = document.getElementById('rootSelect').value;
+            const type = document.getElementById('typeSelect').value;
+            const rootIdx = notes.indexOf(root);
+            const intervals = type === 'major' ? [0, 4, 7] : [0, 3, 7];
+            
+            // 1. PIANO INVERSION LOGIC
+            let pNotes = intervals.map(i => notes[(rootIdx + i) % 12]);
+            let pOctaves = [4, 4, 4];
+            if(currentInv === 1) { pNotes = [pNotes[1], pNotes[2], pNotes[0]]; pOctaves = [4, 4, 5]; }
+            if(currentInv === 2) { pNotes = [pNotes[2], pNotes[0], pNotes[1]]; pOctaves = [4, 5, 5]; }
+            
+            const pianoFull = pNotes.map((n, i) => n + pOctaves[i]);
+            pianoFull.forEach((n, i) => highlightNote(n, (currentInv === 0 && i === 0), true, false));
+
+            // 2. GUITAR "ALL-NOTES" LOGIC
+            const triadNames = intervals.map(i => notes[(rootIdx + i) % 12]);
+            document.querySelectorAll('.fret').forEach(f => {
+                const noteName = f.dataset.note.replace(/[0-9]/g, '');
+                if(triadNames.includes(noteName)) {
+                    const glow = f.querySelector('.note-glow');
+                    glow.classList.add('active');
+                    glow.innerText = noteName;
+                    if(noteName === root) glow.classList.add('root-note');
+                }
+            });
+
+            Tone.start(); synth.triggerAttackRelease(pianoFull, "2n");
+        }
+
+        function clearVisuals() {
+            document.querySelectorAll('.key, .note-glow').forEach(el => {
+                el.classList.remove('active', 'root-note');
+                if(el.classList.contains('key')) el.style.background = "";
+            });
+        }
+    </script>
+</body>
+</html>
