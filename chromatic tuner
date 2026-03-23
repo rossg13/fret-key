@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aura Precision v3 | Pro Meter</title>
+    <style>
+        :root {
+            --neon-orange: #ff8c00;
+            --neon-green: #00ff66;
+            --bg-dark: #050506;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        #tuner-unit {
+            width: 900px;
+            background: linear-gradient(145deg, #151517, #0a0a0b);
+            border: 2px solid #222;
+            border-radius: 15px;
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 200px 1fr 200px;
+            gap: 25px;
+            box-shadow: 0 0 80px rgba(0,0,0,0.8);
+            position: relative;
+        }
+
+        .display-window {
+            background: #000;
+            border: 1px solid #1b1b1e;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 350px;
+        }
+
+        /* The Precision Meter Slider */
+        #meter-container {
+            width: 80%;
+            height: 20px;
+            background: #111;
+            margin-top: 20px;
+            position: relative;
+            border-radius: 10px;
+            border: 1px solid #222;
+            overflow: hidden;
+        }
+
+        #meter-needle {
+            position: absolute;
+            width: 6px;
+            height: 100%;
+            background: var(--neon-orange);
+            left: 50%;
+            transform: translateX(-50%);
+            transition: left 0.1s ease-out, background 0.2s;
+            box-shadow: 0 0 15px var(--neon-orange);
+        }
+
+        #meter-center {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #444;
+            transform: translateX(-50%);
+        }
+
+        /* Note Readout */
+        #note-name {
+            font-size: 9rem;
+            font-weight: 900;
+            margin: 0;
+            color: var(--neon-orange);
+            text-shadow: 0 0 20px rgba(255, 140, 0, 0.3);
+            transition: 0.2s;
+            z-index: 2;
+        }
+        #octave { font-size: 3rem; }
+
+        /* Success States */
+        .in-tune #note-name { color: var(--neon-green); text-shadow: 0 0 50px var(--neon-green); }
+        .in-tune #meter-needle { background: var(--neon-green); box-shadow: 0 0 20px var(--neon-green); }
+
+        /* Labels for "Go Up" / "Go Down" */
+        .meter-labels {
+            width: 80%;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: #444;
+            margin-top: 8px;
+        }
+
+        .side { display: flex; flex-direction: column; justify-content: space-between; }
+        .module { background: #0c0c0e; border: 1px solid #1a1a1c; padding: 15px; border-radius: 8px; text-align: center; }
+        .val { font-family: monospace; font-size: 1.2rem; color: var(--neon-orange); }
+        .in-tune .val { color: var(--neon-green); }
+
+        button {
+            width: 80px; height: 80px; border-radius: 50%; background: #111; border: 2px solid #222;
+            cursor: pointer; margin: 0 auto; transition: 0.3s;
+        }
+        button.active { border-color: var(--neon-green); }
+        button svg { fill: #333; width: 30px; }
+        button.active svg { fill: var(--neon-green); }
+    </style>
+</head>
+<body>
+
+    <div id="tuner-unit">
+        <div class="side">
+            <div class="module">
+                <div>HZ</div>
+                <div id="hz-val" class="val">0.00</div>
+            </div>
+            <div class="module">
+                <div>DIFF</div>
+                <div id="off-val" class="val">0.00</div>
+            </div>
+        </div>
+
+        <div class="display-window" id="main-view">
+            <h1 id="note-name">--<span id="octave"></span></h1>
+            
+            <div id="meter-container">
+                <div id="meter-center"></div>
+                <div id="meter-needle"></div>
+            </div>
+            
+            <div class="meter-labels">
+                <span>FLAT (UP)</span>
+                <span>SHARP (DOWN)</span>
+            </div>
+        </div>
+
+        <div class="side">
+            <div class="module">
+                <div>REF</div>
+                <div class="val">440</div>
+            </div>
+            <button id="pwr" onclick="start()">
+                <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        let running = false;
+
+        async function start() {
+            if(running) return;
+            running = true;
+            document.getElementById('pwr').classList.add('active');
+
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const source = audioCtx.createMediaStreamSource(stream);
+            const analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 4096;
+            source.connect(analyser);
+
+            const buffer = new Float32Array(analyser.fftSize);
+            const needle = document.getElementById('meter-needle');
+            const view = document.getElementById('main-view');
+
+            function loop() {
+                analyser.getFloatTimeDomainData(buffer);
+                const freq = autoCorrelate(buffer, audioCtx.sampleRate);
+
+                if (freq !== -1) {
+                    const noteNum = 12 * (Math.log2(freq / 440)) + 69;
+                    const rounded = Math.round(noteNum);
+                    const diff = noteNum - rounded;
+                    const octave = Math.floor(rounded / 12) - 1;
+
+                    // Update UI
+                    document.getElementById('note-name').innerHTML = `${notes[rounded % 12]}<span id="octave">${octave}</span>`;
+                    document.getElementById('hz-val').innerText = freq.toFixed(2);
+                    document.getElementById('off-val').innerText = diff.toFixed(2);
+
+                    // Move Needle: -0.5 to 0.5 becomes 0% to 100%
+                    const position = 50 + (diff * 100);
+                    needle.style.left = position + "%";
+
+                    // Success Logic
+                    if (Math.abs(diff) < 0.025) view.classList.add('in-tune');
+                    else view.classList.remove('in-tune');
+                }
+                requestAnimationFrame(loop);
+            }
+            loop();
+        }
+
+        function autoCorrelate(buf, sr) {
+            let rms = 0;
+            for (let i=0; i<buf.length; i++) rms += buf[i]*buf[i];
+            if (Math.sqrt(rms/buf.length) < 0.01) return -1;
+            let c = new Array(buf.length).fill(0);
+            for (let i=0; i<buf.length; i++)
+                for (let j=0; j<buf.length-i; j++)
+                    c[i] = c[i] + buf[j]*buf[j+i];
+            let d=0; while (c[d]>c[d+1]) d++;
+            let maxv = -1, maxp = -1;
+            for (let i=d; i<buf.length; i++) {
+                if (c[i] > maxv) { maxv = c[i]; maxp = i; }
+            }
+            return sr / maxp;
+        }
+    </script>
+</body>
+</html>
