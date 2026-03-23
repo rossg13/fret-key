@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fret-Key Synchronizer</title>
+    <title>FRET-LINK 88 // Chord Sync</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
     <style>
         :root {
             --primary: #00d4ff; 
             --accent: #ff4444;  
-            --bg: #0a0a0c;
-            --card: rgba(255, 255, 255, 0.05);
+            --bg: #050505;
+            --card: rgba(255, 255, 255, 0.03);
+            --fret-wood: #1a120b;
         }
 
         body { 
-            font-family: 'Segoe UI', system-ui, sans-serif; 
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; 
             background: var(--bg); 
             color: #e0e0e0; 
             display: flex; 
@@ -22,107 +23,108 @@
             align-items: center; 
             padding: 20px; 
             margin: 0; 
-            background-image: radial-gradient(circle at 50% -20%, #222, #0a0a0c);
+            background-image: radial-gradient(circle at 50% 0%, #1a1a1a, #050505);
         }
 
         h1 {
-            font-weight: 800;
-            background: linear-gradient(to right, var(--primary), #fff);
+            font-weight: 900;
+            font-size: 2.5rem;
+            background: linear-gradient(to bottom, #fff, #666);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: -1px;
+            margin: 20px 0 5px 0;
+        }
+
+        .subtitle {
+            font-size: 10px;
+            letter-spacing: 4px;
+            color: var(--primary);
+            text-transform: uppercase;
+            margin-bottom: 30px;
+            opacity: 0.8;
         }
 
         .controls { 
             background: var(--card); 
-            padding: 20px; 
-            border-radius: 16px; 
-            margin-bottom: 20px; 
+            padding: 24px; 
+            border-radius: 20px; 
+            margin-bottom: 30px; 
             display: flex; 
-            gap: 12px; 
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.1);
+            gap: 15px; 
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.05);
             flex-wrap: wrap;
             justify-content: center;
         }
 
         select, button { 
-            padding: 10px 16px; 
-            border-radius: 8px; 
-            background: #2a2a30; 
+            padding: 12px 20px; 
+            border-radius: 10px; 
+            background: #111; 
             color: white; 
-            border: 1px solid #444; 
+            border: 1px solid #333; 
             cursor: pointer; 
             font-weight: 600;
             transition: all 0.2s;
         }
 
-        button { background: var(--primary); color: #000; border: none; font-size: 11px; text-transform: uppercase; }
-        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 212, 255, 0.4); }
-
-        .inv-btn { background: #333; color: #aaa; }
+        button { background: var(--primary); color: #000; border: none; font-size: 12px; text-transform: uppercase; }
+        .inv-btn { background: #1a1a1a; color: #666; }
         .inv-btn.active-inv { background: #fff; color: #000; }
 
-        /* Piano */
         .piano-container { 
-            width: 95vw; max-width: 1000px; overflow-x: auto; 
-            background: #000; padding: 15px; border-radius: 12px; 
-            margin-bottom: 30px; border: 1px solid #333;
+            width: 95vw; max-width: 1200px; overflow-x: auto; 
+            background: #000; padding: 20px; border-radius: 16px; 
+            margin-bottom: 40px; border: 1px solid #222;
         }
-        .piano { display: inline-flex; height: 140px; position: relative; }
+        .piano { display: inline-flex; height: 160px; position: relative; }
         .key { 
-            width: 35px; background: linear-gradient(to bottom, #ddd, #fff 95%, #bbb); 
-            border: 1px solid #111; border-radius: 0 0 5px 5px; cursor: pointer; flex-shrink: 0;
+            width: 38px; background: linear-gradient(to bottom, #eee, #fff 96%, #999); 
+            border: 1px solid #000; border-radius: 0 0 6px 6px; cursor: pointer; flex-shrink: 0;
             position: relative;
         }
         .key.black { 
-            background: linear-gradient(to bottom, #000, #333 90%, #111); 
-            width: 24px; height: 65%; margin-left: -12px; margin-right: -12px; z-index: 2;
+            background: linear-gradient(to bottom, #111, #333 90%, #000); 
+            width: 26px; height: 65%; margin-left: -13px; margin-right: -13px; z-index: 2;
         }
-        .key.active { background: var(--primary) !important; box-shadow: 0 0 20px var(--primary); }
-        .key[data-note="C4"] { border-bottom: 5px solid var(--accent); }
+        .key.active { background: var(--primary) !important; box-shadow: 0 0 25px var(--primary); }
+        
+        /* REVERTED MIDDLE C STYLE */
+        .key[data-note="C4"] { border-bottom: 5px solid var(--accent) !important; }
 
-        /* Fretboard */
-        .fretboard-wrapper { display: flex; align-items: center; width: 95vw; overflow-x: auto; padding-bottom: 20px; }
-        .string-labels { display: flex; flex-direction: column; justify-content: space-around; height: 210px; margin-right: 15px; color: var(--primary); font-weight: bold; }
-        .fretboard-container { position: relative; display: flex; background: #241911; border-radius: 4px; box-shadow: 0 10px 30px #000; }
-        .fretboard { display: flex; flex-direction: column; border: 2px solid #1a110a; }
-        .nut { width: 12px; background: #d2d2d2; border-right: 4px solid #000; height: 100%; position: absolute; left: 59px; z-index: 5; }
+        .fretboard-wrapper { display: flex; align-items: center; width: 95vw; overflow-x: auto; padding-bottom: 40px; }
+        .string-labels { display: flex; flex-direction: column; justify-content: space-around; height: 210px; margin-right: 20px; color: #444; font-weight: bold; }
+        .fretboard-container { position: relative; display: flex; background: var(--fret-wood); border-radius: 4px; }
+        .fretboard { display: flex; flex-direction: column; border: 2px solid #111; }
+        .nut { width: 14px; background: #e0e0e0; border-right: 4px solid #000; height: 100%; position: absolute; left: 58px; z-index: 5; }
         .string { display: flex; height: 35px; align-items: center; position: relative; }
-        .fret { width: 65px; height: 100%; border-right: 2px solid #777; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; flex-shrink: 0; }
-        .string-wire { position: absolute; width: 100%; height: var(--thick); background: linear-gradient(to bottom, #999, #eee, #999); z-index: 1; pointer-events: none; }
+        .fret { width: 65px; height: 100%; border-right: 2px solid #444; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; flex-shrink: 0; }
+        .string-wire { position: absolute; width: 100%; height: var(--thick); background: linear-gradient(to bottom, #666, #ccc, #666); z-index: 1; pointer-events: none; }
+        
+        /* REVERTED FRET DOTS */
+        .fret-dot { position: absolute; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; z-index: 0; display: none; }
         
         .note-glow { 
-            width: 24px; height: 24px; background: var(--primary); border-radius: 50%; z-index: 10; 
-            display: none; color: black; font-size: 10px; font-weight: 900; line-height: 24px; text-align: center;
+            width: 26px; height: 26px; background: var(--primary); border-radius: 50%; z-index: 10; 
+            display: none; color: black; font-size: 11px; font-weight: 900; line-height: 26px; text-align: center;
         }
-        .note-glow.active { display: block; transform: scale(1.1); box-shadow: 0 0 15px var(--primary); }
-        .note-glow.root-note { background: var(--accent) !important; color: white; box-shadow: 0 0 15px var(--accent); }
-        
-        .fret-dot { position: absolute; width: 12px; height: 12px; background: rgba(255, 255, 255, 0.456); border-radius: 50%; z-index: 0; display: none; }
-        .string:nth-child(4) .fret-3 .fret-dot, 
-.string:nth-child(4) .fret-5 .fret-dot, 
-.string:nth-child(4) .fret-7 .fret-dot, 
-.string:nth-child(4) .fret-9 .fret-dot,
-.string:nth-child(4) .fret-15 .fret-dot,
-.string:nth-child(4) .fret-17 .fret-dot,
-.string:nth-child(4) .fret-19 .fret-dot,
-.string:nth-child(4) .fret-21 .fret-dot { 
-    display: block; 
-}
-.string:nth-child(2) .fret-12 .fret-dot,
-.string:nth-child(5) .fret-12 .fret-dot {
-    display: block;
-    width: 12px;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.6);
-}
+        .note-glow.active { display: block; transform: scale(1.1); box-shadow: 0 0 20px var(--primary); }
+        .note-glow.root-note { background: var(--accent) !important; color: white; }
+
+        /* Marker logic */
+        .string:nth-child(4) .fret-3 .fret-dot, .string:nth-child(4) .fret-5 .fret-dot, 
+        .string:nth-child(4) .fret-7 .fret-dot, .string:nth-child(4) .fret-9 .fret-dot,
+        .string:nth-child(4) .fret-15 .fret-dot, .string:nth-child(4) .fret-17 .fret-dot,
+        .string:nth-child(4) .fret-19 .fret-dot, .string:nth-child(4) .fret-21 .fret-dot { display: block; }
+        .string:nth-child(2) .fret-12 .fret-dot, .string:nth-child(5) .fret-12 .fret-dot { display: block; }
     </style>
 </head>
 <body>
 
-    <h1>Fret-Key Synchronizer</h1>
+    <h1>FRET-LINK 88</h1>
+    <div class="subtitle">Neural Chord Synchronizer</div>
 
     <div class="controls">
         <select id="rootSelect">
@@ -137,8 +139,8 @@
         <button class="inv-btn active-inv" onclick="setInv(0, this)">Root</button>
         <button class="inv-btn" onclick="setInv(1, this)">1st Inv</button>
         <button class="inv-btn" onclick="setInv(2, this)">2nd Inv</button>
-        <button onclick="visualizeChord()">Visualize & Play</button>
-        <button style="background:#444; color:white;" onclick="clearVisuals()">Clear</button>
+        <button onclick="visualizeChord()">Sync & Play</button>
+        <button style="background:#222; color:#666;" onclick="clearVisuals()">Clear</button>
     </div>
 
     <div class="piano-container"><div class="piano" id="piano"></div></div>
@@ -154,13 +156,12 @@
     <script>
         const piano = document.getElementById('piano');
         const fretboard = document.getElementById('fretboard');
-        const reverb = new Tone.Reverb({ decay: 2, wet: 0.3 }).toDestination();
+        const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.4 }).toDestination();
         const synth = new Tone.PolySynth(Tone.Synth).connect(reverb);
         const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
         const guitarTuning = ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'];
         let currentInv = 0;
 
-        // Init Piano
         for (let i = 0; i < 60; i++) {
             const noteName = notes[i % 12];
             const fullNote = noteName + (Math.floor(i / 12) + 2);
@@ -171,7 +172,6 @@
             piano.appendChild(key);
         }
 
-        // Init Fretboard
         guitarTuning.forEach((root, sIdx) => {
             const row = document.createElement('div');
             row.className = 'string';
@@ -198,7 +198,6 @@
         function highlightNote(note, isRoot = false) {
             const clean = Tone.Frequency(note).toNote();
             const nameOnly = clean.replace(/[0-9]/g, '');
-            
             document.querySelectorAll(`.key[data-note="${clean}"]`).forEach(k => k.classList.add('active'));
             document.querySelectorAll(`.fret`).forEach(f => {
                 if (Tone.Frequency(f.dataset.note).toNote() === clean) {
@@ -213,39 +212,32 @@
         async function visualizeChord() {
             clearVisuals();
             await Tone.start();
-            
             const root = document.getElementById('rootSelect').value;
             const type = document.getElementById('typeSelect').value;
             const rootIdx = notes.indexOf(root);
             const intervals = type === 'major' ? [0, 4, 7] : [0, 3, 7];
             
-            // 1. Get the base notes for the triad in the 4th octave
             let baseTriad = intervals.map(i => {
                 let noteIdx = (rootIdx + i);
                 let octave = 4 + Math.floor(noteIdx / 12);
                 return notes[noteIdx % 12] + octave;
             });
 
-            // 2. Handle Inversions by shifting the array and bumping octaves
             let finalChord = [...baseTriad];
             if (currentInv >= 1) {
-                // Move the first note up one octave and to the end
                 let first = Tone.Frequency(finalChord.shift()).transpose(12).toNote();
                 finalChord.push(first);
             }
             if (currentInv >= 2) {
-                // Move the new first note up one octave and to the end
                 let first = Tone.Frequency(finalChord.shift()).transpose(12).toNote();
                 finalChord.push(first);
             }
 
-            // 3. Visualize Piano
-            finalChord.forEach((n, i) => {
+            finalChord.forEach(n => {
                 const nameOnly = n.replace(/[0-9]/g, '');
                 highlightNote(n, nameOnly === root);
             });
 
-            // 4. Visualize Fretboard (All instances of the triad notes)
             const triadNames = intervals.map(i => notes[(rootIdx + i) % 12]);
             document.querySelectorAll('.fret').forEach(f => {
                 const n = f.dataset.note.replace(/[0-9]/g, '');
@@ -256,9 +248,9 @@
                     if(n === root) g.classList.add('root-note');
                 }
             });
-
             synth.triggerAttackRelease(finalChord, "2n");
         }
+
         function clearVisuals() {
             document.querySelectorAll('.key, .note-glow').forEach(el => el.classList.remove('active', 'root-note'));
         }
