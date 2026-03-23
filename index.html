@@ -106,11 +106,43 @@
         /* REVERTED FRET DOTS */
         .fret-dot { position: absolute; width: 14px; height: 14px; background: rgba(255, 255, 255, 0.6); border-radius: 50%; z-index: 0; display: none; }
         
+        /* UPDATED: Added sliding and popping animations */
         .note-glow { 
-            width: 26px; height: 26px; background: var(--primary); border-radius: 50%; z-index: 10; 
-            display: none; color: black; font-size: 11px; font-weight: 900; line-height: 26px; text-align: center;
+            width: 26px; 
+            height: 26px; 
+            background: var(--primary); 
+            border-radius: 50%; 
+            z-index: 10; 
+            display: none; 
+            color: black; 
+            font-size: 11px; 
+            font-weight: 900; 
+            line-height: 26px; 
+            text-align: center;
+            /* This line makes it feel like Framer Motion */
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            transform: scale(0);
+            opacity: 0;
         }
-        .note-glow.active { display: block; transform: scale(1.1); box-shadow: 0 0 20px var(--primary); }
+
+        .note-glow.active { 
+            display: block; 
+            transform: scale(1.1); 
+            opacity: 1;
+            box-shadow: 0 0 20px var(--primary); 
+            /* Trigger a 'pop' animation when it appears */
+            animation: noteAppear 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes noteAppear {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        .note-glow.root-note { 
+            background: var(--accent) !important; 
+            color: white; 
+        }
         .note-glow.root-note { background: var(--accent) !important; color: white; }
 
         /* Marker logic */
@@ -252,7 +284,12 @@
         }
 
         function clearVisuals() {
-            document.querySelectorAll('.key, .note-glow').forEach(el => el.classList.remove('active', 'root-note'));
+            // 1. Remove classes from everything
+            document.querySelectorAll('.key, .note-glow').forEach(el => {
+                el.classList.remove('active', 'root-note');
+                // Optional: Reset the text so it 'pops' back in fresh
+                if(el.classList.contains('note-glow')) el.innerText = '';
+            });
         }
     </script>
 </body>
