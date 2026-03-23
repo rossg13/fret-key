@@ -161,7 +161,7 @@
         let currentInv = 0;
 
         // Init Piano
-        for (let i = 0; i < 48; i++) {
+        for (let i = 0; i < 60; i++) {
             const noteName = notes[i % 12];
             const fullNote = noteName + (Math.floor(i / 12) + 2);
             const key = document.createElement('div');
@@ -213,22 +213,40 @@
         async function visualizeChord() {
             clearVisuals();
             await Tone.start();
+            
             const root = document.getElementById('rootSelect').value;
             const type = document.getElementById('typeSelect').value;
             const rootIdx = notes.indexOf(root);
             const intervals = type === 'major' ? [0, 4, 7] : [0, 3, 7];
-            const triadNames = intervals.map(i => notes[(rootIdx + i) % 12]);
             
-            // Piano Logic
-            let pNotes = [...triadNames];
-            let pOcts = [4, 4, 4];
-            if(currentInv === 1) { pNotes = [pNotes[1], pNotes[2], pNotes[0]]; pOcts = [4, 4, 5]; }
-            else if(currentInv === 2) { pNotes = [pNotes[2], pNotes[0], pNotes[1]]; pOcts = [4, 5, 5]; }
-            
-            const chord = pNotes.map((n, i) => n + pOcts[i]);
-            chord.forEach((n, i) => highlightNote(n, (currentInv === 0 && i === 0)));
+            // 1. Get the base notes for the triad in the 4th octave
+            let baseTriad = intervals.map(i => {
+                let noteIdx = (rootIdx + i);
+                let octave = 4 + Math.floor(noteIdx / 12);
+                return notes[noteIdx % 12] + octave;
+            });
 
-            // Fretboard Logic (All positions)
+            // 2. Handle Inversions by shifting the array and bumping octaves
+            let finalChord = [...baseTriad];
+            if (currentInv >= 1) {
+                // Move the first note up one octave and to the end
+                let first = Tone.Frequency(finalChord.shift()).transpose(12).toNote();
+                finalChord.push(first);
+            }
+            if (currentInv >= 2) {
+                // Move the new first note up one octave and to the end
+                let first = Tone.Frequency(finalChord.shift()).transpose(12).toNote();
+                finalChord.push(first);
+            }
+
+            // 3. Visualize Piano
+            finalChord.forEach((n, i) => {
+                const nameOnly = n.replace(/[0-9]/g, '');
+                highlightNote(n, nameOnly === root);
+            });
+
+            // 4. Visualize Fretboard (All instances of the triad notes)
+            const triadNames = intervals.map(i => notes[(rootIdx + i) % 12]);
             document.querySelectorAll('.fret').forEach(f => {
                 const n = f.dataset.note.replace(/[0-9]/g, '');
                 if(triadNames.includes(n)) {
@@ -238,9 +256,9 @@
                     if(n === root) g.classList.add('root-note');
                 }
             });
-            synth.triggerAttackRelease(chord, "2n");
-        }
 
+            synth.triggerAttackRelease(finalChord, "2n");
+        }
         function clearVisuals() {
             document.querySelectorAll('.key, .note-glow').forEach(el => el.classList.remove('active', 'root-note'));
         }
